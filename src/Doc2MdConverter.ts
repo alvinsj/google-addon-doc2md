@@ -4,43 +4,42 @@ export interface ConversionResult {
 }
 
 class ListCounters {
-  constructor(
-    private readonly counters: { [name: string] : number } = {}) {}
+  constructor(private readonly counters: { [name: string]: number } = {}) {}
 
   public getCounter(key: string): number {
     return this.counters[key] || 0;
   }
 
   public incrementCounter(key: string): ListCounters {
-    const copy: { [name: string] : number } = Object.keys(this.counters)
-      .reduce((acc: { [name: string] : number }, i: string) => {
+    const copy: { [name: string]: number } = Object.keys(this.counters).reduce(
+      (acc: { [name: string]: number }, i: string) => {
         acc[i] = this.counters[i];
         return acc;
-      }, {});
+      },
+      {}
+    );
     copy[key] = copy[key] ? copy[key] + 1 : 1;
     return new ListCounters(copy);
   }
 
   public merge(other: ListCounters): ListCounters {
-    const copy: { [name: string] : number } = {};
-    Object.keys(this.counters)
-      .forEach((key: string) => {
-        copy[key] = this.counters[key];
-      });
-    Object.keys(other.counters)
-      .forEach((key: string) => {
-        const max = copy[key] && copy[key] > other.counters[key] ? copy[key] : other.counters[key];
-        copy[key] = max;
-      });
+    const copy: { [name: string]: number } = {};
+    Object.keys(this.counters).forEach((key: string) => {
+      copy[key] = this.counters[key];
+    });
+    Object.keys(other.counters).forEach((key: string) => {
+      const max =
+        copy[key] && copy[key] > other.counters[key]
+          ? copy[key]
+          : other.counters[key];
+      copy[key] = max;
+    });
     return new ListCounters(copy);
   }
 }
 
 class Warning {
-  constructor(
-    readonly message: string,
-    readonly line: number = 1
-  ) {}
+  constructor(readonly message: string, readonly line: number = 1) {}
 
   public shiftLine(delta: number): Warning {
     return new Warning(this.message, delta + this.line);
@@ -52,15 +51,15 @@ class ProcessingResult {
   }
 
   static newLine(): ProcessingResult {
-    return new ProcessingResult('\n');
+    return new ProcessingResult("\n");
   }
 
   static fromContext(context: Context): ProcessingResult {
-    return new ProcessingResult('', [], context.listCounters);
+    return new ProcessingResult("", [], context.listCounters);
   }
 
   constructor(
-    readonly markdown: string = '',
+    readonly markdown: string = "",
     readonly warnings: Warning[] = [],
     readonly listCounters: ListCounters = new ListCounters()
   ) {}
@@ -70,20 +69,23 @@ class ProcessingResult {
   }
 
   public merge(other: ProcessingResult): ProcessingResult {
-    const lines = this.markdown.split('\n').length - 1;
-    const otherWarnings = other.warnings.map(warning => warning.shiftLine(lines))
+    const lines = this.markdown.split("\n").length - 1;
+    const otherWarnings = other.warnings.map((warning) =>
+      warning.shiftLine(lines)
+    );
     return new ProcessingResult(
-      (this.markdown + other.markdown).replace(/\n\n+/g, '\n\n'),
+      (this.markdown + other.markdown).replace(/\n\n+/g, "\n\n"),
       [...this.warnings, ...otherWarnings],
       this.listCounters.merge(other.listCounters)
-    )
+    );
   }
 
   public mergeWithNewLine(other: ProcessingResult): ProcessingResult {
-    if (this.isEmpty() && other.markdown == '\n') return this;
+    if (this.isEmpty() && other.markdown == "\n") return this;
     if (this.isEmpty()) return other;
-    if (this.markdown[this.markdown.length - 1] === '\n') return this.merge(other);
-    return this.mergeMarkdown('\n').merge(other);
+    if (this.markdown[this.markdown.length - 1] === "\n")
+      return this.merge(other);
+    return this.mergeMarkdown("\n").merge(other);
   }
 
   public mergeMarkdown(md: string): ProcessingResult {
@@ -91,7 +93,7 @@ class ProcessingResult {
       this.markdown + md,
       this.warnings,
       this.listCounters
-    )
+    );
   }
 
   public isEmpty(): Boolean {
@@ -100,9 +102,7 @@ class ProcessingResult {
 }
 
 class Context {
-  constructor(
-    readonly listCounters: ListCounters = new ListCounters()
-  ) {}
+  constructor(readonly listCounters: ListCounters = new ListCounters()) {}
 }
 
 interface CompositeElement {
@@ -115,23 +115,33 @@ export class Doc2MdConverter {
     DocumentApp.ElementType.TABLE_OF_CONTENTS,
     DocumentApp.ElementType.HORIZONTAL_RULE,
     DocumentApp.ElementType.INLINE_DRAWING,
-    DocumentApp.ElementType.UNSUPPORTED
+    DocumentApp.ElementType.UNSUPPORTED,
   ];
 
-  public convertDocumentToMarkdown(document: GoogleAppsScript.Document.Document): ConversionResult {
-    const result = this.processCompositeElement(document.getBody(), new Context());
+  public convertDocumentToMarkdown(
+    document: GoogleAppsScript.Document.Document
+  ): ConversionResult {
+    const result = this.processCompositeElement(
+      document.getBody(),
+      new Context()
+    );
     return {
       markdown: result.markdown,
-      warnings: result.warnings
+      warnings: result.warnings,
     };
   }
 
-  public convertElementsToMarkdown(elements: GoogleAppsScript.Document.Element[]): ConversionResult {
+  public convertElementsToMarkdown(
+    elements: GoogleAppsScript.Document.Element[]
+  ): ConversionResult {
     let result = ProcessingResult.empty();
     for (let i = 0; i < elements.length; ++i) {
       const element: GoogleAppsScript.Document.Element = elements[i];
       const childResult: ProcessingResult = (element as any).getChild
-        ? this.processCompositeElement(element as any as CompositeElement, result.toContext())
+        ? this.processCompositeElement(
+            (element as any) as CompositeElement,
+            result.toContext()
+          )
         : this.processElement(element, result.toContext());
       if (!childResult.isEmpty()) {
         result = result.mergeWithNewLine(childResult);
@@ -140,12 +150,19 @@ export class Doc2MdConverter {
     return result;
   }
 
-  private processCompositeElement(element: CompositeElement, initialContext: Context): ProcessingResult {
-    if (this.omittedElementTypes.indexOf(element.getType()) >= 0) return ProcessingResult.empty();
+  private processCompositeElement(
+    element: CompositeElement,
+    initialContext: Context
+  ): ProcessingResult {
+    if (this.omittedElementTypes.indexOf(element.getType()) >= 0)
+      return ProcessingResult.empty();
     let result = ProcessingResult.empty();
     for (let i = 0; i < element.getNumChildren(); ++i) {
       const child: GoogleAppsScript.Document.Element = element.getChild(i);
-      const childResult: ProcessingResult = this.processElement(child, result.toContext());
+      const childResult: ProcessingResult = this.processElement(
+        child,
+        result.toContext()
+      );
       if (!childResult.isEmpty()) {
         result = result.mergeWithNewLine(childResult);
       }
@@ -153,9 +170,13 @@ export class Doc2MdConverter {
     return result;
   }
 
-  private processElement(element: GoogleAppsScript.Document.Element, ctx: Context): ProcessingResult {
+  private processElement(
+    element: GoogleAppsScript.Document.Element,
+    ctx: Context
+  ): ProcessingResult {
     const type: GoogleAppsScript.Document.ElementType = element.getType();
-    if (this.omittedElementTypes.indexOf(type) >= 0) return ProcessingResult.empty();
+    if (this.omittedElementTypes.indexOf(type) >= 0)
+      return ProcessingResult.empty();
     if (type == DocumentApp.ElementType.TABLE) {
       return this.processTable(element.asTable(), ctx);
     } else if (type == DocumentApp.ElementType.PARAGRAPH) {
@@ -171,7 +192,9 @@ export class Doc2MdConverter {
     }
   }
 
-  private unrecognizedElement(child: GoogleAppsScript.Document.Element): ProcessingResult {
+  private unrecognizedElement(
+    child: GoogleAppsScript.Document.Element
+  ): ProcessingResult {
     return new ProcessingResult(
       "(WARN_UNRECOGNIZED_ELEMENT: " + child.getType() + ")",
       [new Warning("Unrecognized element: " + child.getType())]
@@ -179,52 +202,73 @@ export class Doc2MdConverter {
   }
 
   private processImage(): ProcessingResult {
-    return new ProcessingResult(
-      "![WARN_REPLACE_IMG]()",
-      [new Warning("Image to replace")]
-    );
+    return new ProcessingResult("![WARN_REPLACE_IMG]()", [
+      new Warning("Image to replace"),
+    ]);
   }
 
-  private processParagraph(paragraph: GoogleAppsScript.Document.Paragraph, context: Context): ProcessingResult {
+  private processParagraph(
+    paragraph: GoogleAppsScript.Document.Paragraph,
+    context: Context
+  ): ProcessingResult {
     const prefix = this.processParagraphHeading(paragraph.getHeading());
     const content = this.processCompositeElement(paragraph, context);
-    return content.isEmpty() ? ProcessingResult.newLine() : prefix.merge(content);
+    return content.isEmpty()
+      ? ProcessingResult.newLine()
+      : prefix.merge(content);
   }
 
-  private processList(list: GoogleAppsScript.Document.ListItem, context: Context): ProcessingResult {
+  private processList(
+    list: GoogleAppsScript.Document.ListItem,
+    context: Context
+  ): ProcessingResult {
     const prefix = this.processListPrefix(list, context);
     const text = this.processText(list.editAsText());
     return text.isEmpty() ? ProcessingResult.empty() : prefix.merge(text);
   }
 
-  private processParagraphHeading(heading: GoogleAppsScript.Document.ParagraphHeading): ProcessingResult {
+  private processParagraphHeading(
+    heading: GoogleAppsScript.Document.ParagraphHeading
+  ): ProcessingResult {
     switch (heading) {
-      case DocumentApp.ParagraphHeading.HEADING6: return new ProcessingResult("\n###### ");
-      case DocumentApp.ParagraphHeading.HEADING5: return new ProcessingResult("\n##### ");
-      case DocumentApp.ParagraphHeading.HEADING4: return new ProcessingResult("\n#### ");
-      case DocumentApp.ParagraphHeading.HEADING3: return new ProcessingResult("\n### ");
-      case DocumentApp.ParagraphHeading.HEADING2: return new ProcessingResult("\n## ");
-      case DocumentApp.ParagraphHeading.HEADING1: return new ProcessingResult("\n# ");
-      case DocumentApp.ParagraphHeading.SUBTITLE: return new ProcessingResult("\n## ");
-      case DocumentApp.ParagraphHeading.TITLE: return new ProcessingResult("\n# ");
-      default: return ProcessingResult.empty();
+      case DocumentApp.ParagraphHeading.HEADING6:
+        return new ProcessingResult("\n###### ");
+      case DocumentApp.ParagraphHeading.HEADING5:
+        return new ProcessingResult("\n##### ");
+      case DocumentApp.ParagraphHeading.HEADING4:
+        return new ProcessingResult("\n#### ");
+      case DocumentApp.ParagraphHeading.HEADING3:
+        return new ProcessingResult("\n### ");
+      case DocumentApp.ParagraphHeading.HEADING2:
+        return new ProcessingResult("\n## ");
+      case DocumentApp.ParagraphHeading.HEADING1:
+        return new ProcessingResult("\n# ");
+      case DocumentApp.ParagraphHeading.SUBTITLE:
+        return new ProcessingResult("\n## ");
+      case DocumentApp.ParagraphHeading.TITLE:
+        return new ProcessingResult("\n# ");
+      default:
+        return ProcessingResult.empty();
     }
   }
 
-  private processListPrefix(list: GoogleAppsScript.Document.ListItem, context: Context): ProcessingResult {
+  private processListPrefix(
+    list: GoogleAppsScript.Document.ListItem,
+    context: Context
+  ): ProcessingResult {
     const level = list.getNestingLevel();
-    const padding = [...Array(level)]
-      .map(() => ' ')
-      .join(' ');
+    const padding = [...Array(level)].map(() => " ").join(" ");
     var glyph = list.getGlyphType();
     // Bullet list (<ul>):
-    if (glyph === DocumentApp.GlyphType.BULLET
-        || glyph === DocumentApp.GlyphType.HOLLOW_BULLET
-        || glyph === DocumentApp.GlyphType.SQUARE_BULLET) {
+    if (
+      glyph === DocumentApp.GlyphType.BULLET ||
+      glyph === DocumentApp.GlyphType.HOLLOW_BULLET ||
+      glyph === DocumentApp.GlyphType.SQUARE_BULLET
+    ) {
       return new ProcessingResult(padding + "* ");
     } else {
       // Ordered list (<ol>):
-      const key = list.getListId() + '.' + list.getNestingLevel();
+      const key = list.getListId() + "." + list.getNestingLevel();
       const counters = context.listCounters.incrementCounter(key);
       const prefix = padding + counters.getCounter(key) + ". ";
       return new ProcessingResult(prefix, [], counters);
@@ -242,22 +286,26 @@ export class Doc2MdConverter {
       let font = text.getFontFamily(offset);
       let value = result.substring(offset, lastOffset);
       if (url) {
-        while (i >= 1 && indices[i-1] == offset-1 && text.getLinkUrl(indices[i-1]) === url) {
+        while (
+          i >= 1 &&
+          indices[i - 1] == offset - 1 &&
+          text.getLinkUrl(indices[i - 1]) === url
+        ) {
           // detect links that are in multiple pieces because of errors on formatting:
           i -= 1;
           offset = indices[i];
         }
-        value = '[' + result.substring(offset, lastOffset) + '](' + url + ')';
-      } else if (font === 'Courier New') {
-        while (i >= 1 && text.getFontFamily(indices[i-1]) === 'Courier New') {
+        value = "[" + result.substring(offset, lastOffset) + "](" + url + ")";
+      } else if (font === "Courier New") {
+        while (i >= 1 && text.getFontFamily(indices[i - 1]) === "Courier New") {
           // detect fonts that are in multiple pieces because of errors on formatting:
-          i-=1;
+          i -= 1;
           offset = indices[i];
         }
-        value = '`' + result.substring(offset, lastOffset) + '`';
+        value = "`" + result.substring(offset, lastOffset) + "`";
       }
       if (text.isItalic(offset)) {
-        value = '*' + value + '*';
+        value = "*" + value + "*";
       }
       if (text.isBold(offset)) {
         value = "**" + value + "**";
@@ -265,39 +313,58 @@ export class Doc2MdConverter {
       if (!url && text.isUnderline(offset)) {
         value = "__" + value + "__";
       }
-      result = result.substring(0, offset) + value + result.substring(lastOffset);
+      result =
+        result.substring(0, offset) + value + result.substring(lastOffset);
       lastOffset = offset;
     }
     return new ProcessingResult(result);
   }
 
-  private processTable(table: GoogleAppsScript.Document.Table, ctx: Context): ProcessingResult {
+  private processTable(
+    table: GoogleAppsScript.Document.Table,
+    ctx: Context
+  ): ProcessingResult {
     if (table.getNumRows() < 1) return new ProcessingResult();
     let result = this.processTableFirstRow(table.getRow(0), ctx);
+
+    result.mergeMarkdown("<table>");
+
     for (let i = 1; i < table.getNumRows(); ++i) {
-      const rowResult = this.processTableRow(table.getRow(i), result.toContext());
+      const rowResult = this.processTableRow(
+        table.getRow(i),
+        result.toContext()
+      );
       result = result.mergeWithNewLine(rowResult);
     }
-    return result;
+    return new ProcessingResult("<table>")
+      .merge(result)
+      .mergeMarkdown("</table>");
   }
 
-  private processTableFirstRow(row: GoogleAppsScript.Document.TableRow, ctx: Context): ProcessingResult {
-    const cells = row.getNumCells();
+  private processTableFirstRow(
+    row: GoogleAppsScript.Document.TableRow,
+    ctx: Context
+  ): ProcessingResult {
     const titleRow = this.processTableRow(row, ctx);
-    const underline = [...Array(cells)]
-      .map(() => '---')
-      .join(' | ');
-    return titleRow.mergeMarkdown("\n| " + underline + " |\n");
+    return titleRow;
   }
 
-  private processTableRow(row: GoogleAppsScript.Document.TableRow, initialContext: Context): ProcessingResult {
+  private processTableRow(
+    row: GoogleAppsScript.Document.TableRow,
+    initialContext: Context
+  ): ProcessingResult {
     let result = ProcessingResult.fromContext(initialContext);
+
     for (let i = 0; i < row.getNumCells(); ++i) {
-      const cellResult = this.processCompositeElement(row.getCell(i), result.toContext());
+      const cellResult = this.processCompositeElement(
+        row.getCell(i),
+        result.toContext()
+      );
       result = result
+        .mergeMarkdown("<td>")
         .merge(cellResult)
-        .mergeMarkdown(' | ');
+        .mergeMarkdown("</td>");
     }
-    return new ProcessingResult('| ').merge(result);
+    return new ProcessingResult("<tr>").merge(result).mergeMarkdown("<tr>");
   }
 }
