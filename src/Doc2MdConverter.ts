@@ -268,10 +268,23 @@ export class Doc2MdConverter {
       return new ProcessingResult(padding + "* ");
     } else {
       // Ordered list (<ol>):
-      const key = list.getListId() + "." + list.getNestingLevel();
+      const key =
+        list.getListId() +
+        ":" +
+        list.getNestingLevel() +
+        ":" +
+        list.getParent().getText();
       const counters = context.listCounters.incrementCounter(key);
       const prefix = padding + counters.getCounter(key) + ". ";
-      return new ProcessingResult(prefix, [], counters);
+
+      let nesting = new ProcessingResult("#");
+
+      for (let i = 0; i < list.getNestingLevel(); i++)
+        nesting = nesting.mergeMarkdown("#");
+
+      return nesting
+        .merge(new ProcessingResult("", [], counters))
+        .mergeMarkdown("  ");
     }
   }
 
